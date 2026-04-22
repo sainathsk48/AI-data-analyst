@@ -143,18 +143,19 @@ IMPORTANT:
                 summary_text = generate_summary(df, insight, chart_info)
 
                 # 5.B Build enhanced CSV
-                summary_lines = [l for l in summary_text.strip().split('\n') if l.strip()]
-                summary_df = pd.DataFrame({'Summary': summary_lines})
+                report_df = pd.DataFrame({
+                    'User Question': [user_question],
+                    'AI Answer': [insight],
+                    'Detailed Summary': [summary_text.strip()]
+                })
 
                 buf = io.StringIO()
-                summary_df.to_csv(buf, index=False)   # Part 1: summary
-                buf.write("\n")                         # Part 2: separator
-                df.to_csv(buf, index=False)             # Part 3: original data
+                report_df.to_csv(buf, index=False)
 
                 st.download_button(
-                    label="📥 Download Analyzed Data (CSV)",
+                    label="📥 Download Analysis Report (CSV)",
                     data=buf.getvalue(),
-                    file_name="analyzed_data.csv",
+                    file_name="analysis_report.csv",
                     mime="text/csv"
                 )
 
