@@ -1,6 +1,3 @@
-Here is a professional, complete Markdown text you can copy and paste directly into your `README.md` file:
-
-```markdown
 # 🤖 AI Data Analyst Web App
 
 A powerful, intuitive web application built with **Streamlit** and **Groq** that turns you into a data science expert instantly. Upload any CSV file, ask questions in plain English, and let the AI instantly analyze your data, generate insights, build dynamic charts, and give you exportable reports.
@@ -47,5 +44,3 @@ streamlit run app.py
 ## ⚠️ Notes on Rate Limits
 This app is configured to use Groq's fast `llama-3.1-8b` model to help bypass the heavy daily token limits of larger models. It intelligently samples data to ensure you don't hit the *Tokens Per Minute (TPM)* limit on the free tier!
 ```
-
-Just copy everything inside the block above and paste it into your README! It will format beautifully on GitHub.
