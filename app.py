@@ -83,7 +83,7 @@ First 3 rows:
 User Question: {user_question}
 
 Write Python code to answer this question. The code MUST do two things:
-1. Calculate the correct answer using `df` and store it as a string in a variable named `insight`.
+1. Calculate the correct answer using `df`. Then, format that answer into a conversational, plain-English sentence and store it as a string in a variable named `insight`. Do NOT just return a raw number. Format it beautifully (e.g. "The state with the highest number of cases is Kerala with 1,234,567 cases.")
 2. If a chart makes sense, create a Plotly Express figure and store it in a variable named `fig`. If no chart makes sense, set `fig = None`.
 
 IMPORTANT: 
