@@ -23,25 +23,7 @@ def ask_groq(prompt: str) -> str:
     )
     return response.choices[0].message.content
 
-def generate_summary(df, insight, chart_info):
-    """5.A Generate Plain-English Summary"""
-    prompt = f"""
-Based on the data statistics, AI insight, and chart information below, write a plain-English summary
-for a non-technical audience. Return ONLY 3-5 bullet points (one per line, starting with '- '). No extra text.
 
-Data Statistics:
-{df.describe().to_string()}
-
-AI Insight:
-{insight}
-
-Chart Information:
-{chart_info}
-"""
-    try:
-        return ask_groq(prompt)
-    except Exception as e:
-        return f"- Summary generation failed: {e}"
 
 # ── main app ─────────────────────────────────────────────────────────────────
 
@@ -137,26 +119,36 @@ IMPORTANT:
                     except Exception as e:
                         st.error(f"Chart rendering error: {e}")
 
-                # 5. Download with Smart Summary
-                # Fallback info since we removed chart_type/x_col/y_col JSON parsing
-                chart_info = "Chart generated via code" if fig else "No chart"
-                summary_text = generate_summary(df, insight, chart_info)
+                # 5. Download HTML Report
+                html_content = f"""
+                <html>
+                <head><title>Data Analysis Report</title></head>
+                <body style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; color: #333;">
+                    <h2 style="color: #2e6c80;">Data Analysis Report</h2>
+                    <hr>
+                    <h3 style="color: #444;">Question:</h3>
+                    <p style="font-size: 16px; background-color: #f4f4f4; padding: 10px; border-left: 4px solid #ccc;">{{user_question}}</p>
+                    
+                    <h3 style="color: #444;">AI Analysis:</h3>
+                    <p style="font-size: 16px;">{{insight}}</p>
+                """
 
-                # 5.B Build enhanced CSV
-                report_df = pd.DataFrame({
-                    'User Question': [user_question],
-                    'AI Answer': [insight],
-                    'Detailed Summary': [summary_text.strip()]
-                })
+                if fig:
+                    html_content += f"""
+                    <h3 style="color: #444;">Visualization:</h3>
+                    <div>{{fig.to_html(full_html=False, include_plotlyjs='cdn')}}</div>
+                    """
 
-                buf = io.StringIO()
-                report_df.to_csv(buf, index=False)
+                html_content += """
+                </body>
+                </html>
+                """
 
                 st.download_button(
-                    label="📥 Download Analysis Report (CSV)",
-                    data=buf.getvalue(),
-                    file_name="analysis_report.csv",
-                    mime="text/csv"
+                    label="📥 Download Analysis Report (HTML)",
+                    data=html_content,
+                    file_name="analysis_report.html",
+                    mime="text/html"
                 )
 
             except Exception as e:
