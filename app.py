@@ -127,16 +127,16 @@ IMPORTANT:
                     <h2 style="color: #2e6c80;">Data Analysis Report</h2>
                     <hr>
                     <h3 style="color: #444;">Question:</h3>
-                    <p style="font-size: 16px; background-color: #f4f4f4; padding: 10px; border-left: 4px solid #ccc;">{{user_question}}</p>
+                    <p style="font-size: 16px; background-color: #f4f4f4; padding: 10px; border-left: 4px solid #ccc;">{user_question}</p>
                     
                     <h3 style="color: #444;">AI Analysis:</h3>
-                    <p style="font-size: 16px;">{{insight}}</p>
+                    <p style="font-size: 16px;">{insight}</p>
                 """
 
                 if fig:
                     html_content += f"""
                     <h3 style="color: #444;">Visualization:</h3>
-                    <div>{{fig.to_html(full_html=False, include_plotlyjs='cdn')}}</div>
+                    <div>{fig.to_html(full_html=False, include_plotlyjs='cdn')}</div>
                     """
 
                 html_content += """
