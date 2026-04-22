@@ -89,72 +89,57 @@ def main():
 
         with st.spinner("Thinking..."):
             # 4.1 Prompt Construction
-            # Groq free tier limit is 12,000 tokens/minute. 150 rows is a safe balance.
-            sample_size = min(150, len(df))
-            csv_sample = df.sample(sample_size, random_state=42).to_csv(index=False)
-            
+            # We must ask the AI to write Python code because passing a sample is inaccurate for aggregations.
             prompt = f"""
-You are a data analyst. Answer the user's question about the dataset below.
+You are an expert Python data analyst. The user has a pandas DataFrame named `df`.
+Here is the structure of `df`:
+Columns: {list(df.columns)}
+Data Types: {df.dtypes.astype(str).to_dict()}
+First 3 rows:
+{df.head(3).to_string()}
 
-Column names: {list(df.columns)}
+User Question: {user_question}
 
-Descriptive statistics:
-{df.describe().to_string()}
+Write Python code to answer this question. The code MUST do two things:
+1. Calculate the correct answer using `df` and store it as a string in a variable named `insight`.
+2. If a chart makes sense, create a Plotly Express figure and store it in a variable named `fig`. If no chart makes sense, set `fig = None`.
 
-Random Representative Sample ({sample_size} rows):
-{csv_sample}
-
-User question: {user_question}
-
-IMPORTANT: Return ONLY valid JSON — no markdown, no backticks, no explanation. Exactly this structure:
-{{
-  "insight": "Plain English answer. Direct and simple. No technical language.",
-  "chart_type": "bar or line or pie or none",
-  "x_column": "exact column name or null",
-  "y_column": "exact column name or null"
-}}
+IMPORTANT: 
+- For charts, ALWAYS aggregate the data first (e.g., groupby) before plotting so it doesn't plot thousands of overlapping rows!
+- Assume `import pandas as pd` and `import plotly.express as px` are already imported.
+- Return ONLY valid Python code. No markdown formatting, no backticks, no explanations. Just the code.
 """
             try:
                 raw = ask_groq(prompt)
 
-                # 4.3 JSON Parsing
-                match = re.search(r'\{.*\}', raw, re.DOTALL)
-                if not match:
-                    st.error("Could not parse AI response as JSON.")
-                    st.text("Raw response:")
-                    st.text(raw)
+                # 4.3 Clean Code
+                code = raw.replace("```python", "").replace("```", "").strip()
+
+                # 4.4 Execute Code
+                local_vars = {'df': df, 'px': px, 'pd': pd, 'insight': 'No insight generated.', 'fig': None}
+                
+                try:
+                    exec(code, globals(), local_vars)
+                except Exception as exec_err:
+                    st.error(f"Error executing AI code: {exec_err}")
+                    with st.expander("Show AI Code"):
+                        st.code(code)
                     return
 
-                parsed = json.loads(match.group(0))
-                insight    = parsed.get("insight", "No insight provided.")
-                chart_type = parsed.get("chart_type", "none")
-                x_col      = parsed.get("x_column")
-                y_col      = parsed.get("y_column")
+                insight = local_vars.get('insight')
+                fig = local_vars.get('fig')
 
                 st.info(f"💡 {insight}")
 
-                # 4.4 Column Validation + Chart Rendering
-                chart_valid = True
-                if chart_type in ("bar", "line", "pie"):
-                    for col_val, label in [(x_col, "x_column"), (y_col, "y_column")]:
-                        if col_val and col_val not in df.columns:
-                            st.warning(f"AI suggested an invalid column '{col_val}'. Please rephrase your question.")
-                            chart_valid = False
-
-                    if chart_valid:
-                        try:
-                            if chart_type == "bar":
-                                fig = px.bar(df, x=x_col, y=y_col, title=f"{y_col} by {x_col}")
-                            elif chart_type == "line":
-                                fig = px.line(df, x=x_col, y=y_col, title=f"{y_col} over {x_col}")
-                            elif chart_type == "pie":
-                                fig = px.pie(df, names=x_col, values=y_col, title=f"{y_col} distribution")
-                            st.plotly_chart(fig, use_container_width=True)
-                        except Exception as e:
-                            st.error(f"Chart rendering error: {e}")
+                if fig:
+                    try:
+                        st.plotly_chart(fig, use_container_width=True)
+                    except Exception as e:
+                        st.error(f"Chart rendering error: {e}")
 
                 # 5. Download with Smart Summary
-                chart_info = f"Chart type: {chart_type}, X: {x_col}, Y: {y_col}"
+                # Fallback info since we removed chart_type/x_col/y_col JSON parsing
+                chart_info = "Chart generated via code" if fig else "No chart"
                 summary_text = generate_summary(df, insight, chart_info)
 
                 # 5.B Build enhanced CSV
