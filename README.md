@@ -44,3 +44,6 @@ streamlit run app.py
 ## ⚠️ Notes on Rate Limits
 This app is configured to use Groq's fast `llama-3.1-8b` model to help bypass the heavy daily token limits of larger models. It intelligently samples data to ensure you don't hit the *Tokens Per Minute (TPM)* limit on the free tier!
 ```
+
+
+https://ai-data-analyst-x5pxygnk8xk8gxwptpcygg.streamlit.app/
