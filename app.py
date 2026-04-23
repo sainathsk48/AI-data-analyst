@@ -87,6 +87,7 @@ Write Python code to answer this question. The code MUST do two things:
 2. If a chart makes sense, create a Plotly Express figure and store it in a variable named `fig`. If no chart makes sense, set `fig = None`.
 
 IMPORTANT: 
+- ALWAYS clean missing data (NaN/Nulls) using `.fillna(0)` or `.dropna()` before calculating sums, maxes, or grouping. Otherwise, your result will be 'NaN'!
 - For charts, ALWAYS aggregate the data first (e.g., groupby) before plotting so it doesn't plot thousands of overlapping rows!
 - Assume `import pandas as pd` and `import plotly.express as px` are already imported.
 - Return ONLY valid Python code. No markdown formatting, no backticks, no explanations. Just the code.
