@@ -46,4 +46,3 @@ This Web app is configured to use Groq's fast `llama-3.1-8b` model to help bypas
 ```
 
 
-https://ai-data-analyst-x5pxygnk8xk8gxwptpcygg.streamlit.app/
