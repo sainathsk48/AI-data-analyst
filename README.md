@@ -8,7 +8,7 @@ A powerful, intuitive web application built with **Streamlit** and **Groq** that
 - **💬 Natural Language Querying**: Just ask questions like *"What is the distribution of ages?"* or *"Show me sales trends over time"* and get direct answers.
 - **📊 Dynamic Auto-Charting**: The AI automatically selects and renders the perfect Plotly graph (Bar, Line, or Pie charts) to visually represent your answer.
 - **⚡ Smart Context Sampling**: Designed to bypass strict AI rate limits while maintaining high accuracy by intelligently sampling representative rows and deep statistical summaries.
-- **📥 One-Click Export**: Download an "Analyzed CSV" that includes both your original data and a plain-English AI summary attached to the top.
+- **📥 One-Click Export**: Download an "Analyzed file" that includes both your original data and a plain-English AI summary attached to the top with analysis.
 
 ## 🛠️ Tech Stack
 
