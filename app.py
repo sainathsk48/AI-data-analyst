@@ -137,6 +137,8 @@ OUTPUT ONLY THE PYTHON CODE.
         st.info(f"💡 {latest['insight']}")
         
         if latest['evidence'] is not None and not latest['evidence'].empty:
+            num_rows = len(latest['evidence'])
+            st.success(f"✅ Found {num_rows} matching record(s) in your data.")
             with st.expander("📊 View Data Evidence (Verification)"):
                 st.dataframe(latest['evidence'], use_container_width=True)
 
