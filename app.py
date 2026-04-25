@@ -50,21 +50,23 @@ def main():
 
     try:
         uploaded_file.seek(0)
-        try:
-            df = pd.read_csv(uploaded_file, on_bad_lines='skip', encoding='utf-8', index_col=False)
-        except UnicodeDecodeError:
-            uploaded_file.seek(0)
-            df = pd.read_csv(uploaded_file, on_bad_lines='skip', encoding='iso-8859-1', index_col=False)
-    except Exception as e:
-        st.error(f"Error reading CSV: {e}")
-        return
+        # Use a more robust loading method
+        df = pd.read_csv(uploaded_file, on_bad_lines='skip', encoding='utf-8', index_col=False)
+        # Force column names to be strings and strip whitespace
+        df.columns = [str(c).strip() for c in df.columns]
+    except Exception:
+        uploaded_file.seek(0)
+        df = pd.read_csv(uploaded_file, on_bad_lines='skip', encoding='iso-8859-1', index_col=False)
+        df.columns = [str(c).strip() for c in df.columns]
 
     # ── Data Preview ──────────────────────────────────────────────────────────
     st.subheader("📋 Data Preview")
     st.dataframe(df.head(), use_container_width=True)
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     col1.metric("Total Rows", len(df))
     col2.metric("Total Columns", len(df.columns))
+    col3.write("**Columns Found:**")
+    col3.write(list(df.columns))
     
     st.markdown("---")
 
@@ -86,17 +88,16 @@ def main():
 DataFrame `df` structure:
 Columns: {list(df.columns)}
 Dtypes: {df.dtypes.astype(str).to_dict()}
-Sample: {df.head(2).to_dict()}
 
 Question: {user_question}
 
 TASK: Write Python code.
 RULES:
-1. Search for the requested entity using case-insensitive matching. Store in `evidence`.
-2. CRITICAL: Store your text answer in `insight`. 
-   - NEVER hardcode numbers in the string (e.g., DON'T write `insight = "Score is 50"`).
-   - ALWAYS use f-strings to fetch values directly from the `evidence` row (e.g., `insight = f"Score is {{evidence['ColumnName'].iloc[0]}}"`).
-3. Store your plotly figure in `fig` or set `fig = None`.
+1. Search for the entity in Name or Email columns. Store results in `evidence`.
+2. SAFETY CHECK: If `evidence` is empty, set `insight = "I couldn't find any record for that."` and `fig = None`.
+3. If found, store detailed text in `insight`. Use f-strings: `f"...{{evidence['Col'].iloc[0]}}..."`. 
+   DO NOT hardcode numbers.
+4. Store plotly figure in `fig` or `None`.
 
 OUTPUT ONLY THE PYTHON CODE.
 """
