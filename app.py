@@ -113,7 +113,8 @@ TASK: Write Python code.
 5. End `insight` with "📋 Evidence: " and the row contents.
 6. Set `fig = None` for individual fact questions.
 
-OUTPUT ONLY THE PYTHON CODE.
+IMPORTANT: 
+- To avoid "No axis named 1" errors, if you select a single row with `.iloc[0]`, it becomes a Series. Use `evidence.iloc[[0]]` (with double brackets) to keep it as a DataFrame.
 """
             try:
                 raw = ask_groq(prompt)
@@ -145,6 +146,8 @@ OUTPUT ONLY THE PYTHON CODE.
                         })
                 except Exception as exec_err:
                     st.error(f"Execution Error: {exec_err}")
+                    with st.expander("View AI Generated Code"):
+                        st.code(code)
 
             except Exception as e:
                 st.error(f"AI Logic Error: {e}")
