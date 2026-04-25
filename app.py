@@ -125,7 +125,15 @@ IMPORTANT:
                 code = code_match.group(1).strip() if code_match else raw.strip()
 
                 # Execute Code
-                local_vars = {'df': df, 'px': px, 'pd': pd, 'insight': None, 'fig': None, 'evidence': None}
+                local_vars = {
+                    'df': df, 
+                    'px': px, 
+                    'pd': pd, 
+                    'insight': None, 
+                    'fig': None, 
+                    'evidence': None,
+                    'search_term': user_question
+                }
                 
                 try:
                     exec(code, globals(), local_vars)
