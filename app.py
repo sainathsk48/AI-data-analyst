@@ -93,11 +93,12 @@ Question: {user_question}
 
 TASK: Write Python code.
 RULES:
-1. Search for the entity in Name or Email columns. Store results in `evidence`.
-2. SAFETY CHECK: If `evidence` is empty, set `insight = "I couldn't find any record for that."` and `fig = None`.
-3. If found, store detailed text in `insight`. Use f-strings: `f"...{{evidence['Col'].iloc[0]}}..."`. 
-   DO NOT hardcode numbers.
-4. Store plotly figure in `fig` or `None`.
+1. Search for the entity in Name or Email columns. Store in `evidence`.
+2. CRITICAL: If multiple records are found (e.g. 2 rows for "Sainath"), you MUST report details for ALL of them. 
+3. Store detailed text in `insight`. Use f-strings to fetch values from every row in `evidence`.
+   Example: "I found 2 records: one in Math with score X, and one in Android with score Y."
+4. SAFETY CHECK: If `evidence` is empty, set `insight = "I couldn't find any record."` and `fig = None`.
+5. Store plotly figure in `fig` or `None`.
 
 OUTPUT ONLY THE PYTHON CODE.
 """
@@ -145,8 +146,12 @@ OUTPUT ONLY THE PYTHON CODE.
         
         if latest['evidence'] is not None and not latest['evidence'].empty:
             num_rows = len(latest['evidence'])
-            st.success(f"✅ Found {num_rows} matching record(s) in your data.")
-            with st.expander("📊 View Data Evidence (Verification)"):
+            if num_rows > 1:
+                st.warning(f"⚠️ Found {num_rows} matching records for this name. Showing details for all below.")
+            else:
+                st.success(f"✅ Found 1 matching record.")
+                
+            with st.expander("📊 View Data Evidence (Verification)", expanded=(num_rows > 1)):
                 st.dataframe(latest['evidence'], use_container_width=True)
 
         if latest['fig']:
