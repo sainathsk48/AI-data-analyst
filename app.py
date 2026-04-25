@@ -81,10 +81,9 @@ def main():
 
         with st.spinner("Thinking..."):
             # 4.1 Prompt Construction
-            # We must ask the AI to write Python code because passing a sample is inaccurate for aggregations.
             prompt = f"""
 You are an expert Python data analyst. The user has a pandas DataFrame named `df`.
-Here is the structure of `df`:
+Structure:
 Columns: {list(df.columns)}
 Data Types: {df.dtypes.astype(str).to_dict()}
 First 3 rows:
@@ -92,40 +91,44 @@ First 3 rows:
 
 User Question: {user_question}
 
-Write Python code to answer this question. The code MUST do two things:
-1. Calculate the correct answer using `df`. Then, format that answer into a conversational, detailed, and "improvised" plain-English sentence and store it as a string in a variable named `insight`. 
-   - IMPROVISE: Don't just give the raw fact. Add related context from other columns if found (e.g. if asking for a person, mention their department or group if available).
-   - Format it beautifully and helpfully.
-2. If a chart makes sense, create a Plotly Express figure and store it in a variable named `fig`. If no chart makes sense, set `fig = None`.
+Write Python code to answer this question. 
+1. Use `df` to calculate the answer. If searching for a string (like a name), use case-insensitive matching (e.g. `df[df['Name'].str.contains('sainath', case=False, na=False)]`).
+2. Store a detailed, conversational, "improvised" plain-English answer in a variable named `insight`. Include context from other columns.
+3. Create a Plotly Express figure in `fig` (or `None`). Aggregate data before plotting.
 
-IMPORTANT: 
-- ALWAYS clean missing data (NaN/Nulls) using `.fillna(0)` or `.dropna()` before calculating sums, maxes, or grouping. Otherwise, your result will be 'NaN'!
-- For charts, ALWAYS aggregate the data first (e.g., groupby) before plotting!
-- Assume `import pandas as pd` and `import plotly.express as px` are already imported.
-- Return ONLY valid Python code. No markdown formatting, no backticks, no explanations. Just the code.
+Assume `import pandas as pd` and `import plotly.express as px` are ready.
+Return ONLY valid Python code. No markdown, no backticks, no text.
 """
             try:
                 raw = ask_groq(prompt)
-                code = raw.replace("```python", "").replace("```", "").strip()
+                
+                # Robust Code Extraction
+                code_match = re.search(r"```(?:python)?\n?(.*?)\n?```", raw, re.DOTALL)
+                code = code_match.group(1).strip() if code_match else raw.strip()
 
                 # Execute Code
                 local_vars = {'df': df, 'px': px, 'pd': pd, 'insight': 'No insight generated.', 'fig': None}
-                exec(code, globals(), local_vars)
-
-                insight = local_vars.get('insight')
-                fig = local_vars.get('fig')
                 
-                # Save to history
-                fig_html = fig.to_html(full_html=False, include_plotlyjs='cdn') if fig else None
-                st.session_state.history.insert(0, {
-                    "question": user_question,
-                    "insight": insight,
-                    "fig": fig,
-                    "fig_html": fig_html
-                })
+                try:
+                    exec(code, globals(), local_vars)
+                    insight = local_vars.get('insight')
+                    fig = local_vars.get('fig')
+                    
+                    # Save to history ONLY if execution succeeded
+                    fig_html = fig.to_html(full_html=False, include_plotlyjs='cdn') if fig else None
+                    st.session_state.history.insert(0, {
+                        "question": user_question,
+                        "insight": insight,
+                        "fig": fig,
+                        "fig_html": fig_html
+                    })
+                except Exception as exec_err:
+                    st.error(f"Execution Error: {exec_err}")
+                    with st.expander("View AI Generated Code"):
+                        st.code(code)
 
             except Exception as e:
-                st.error(f"An error occurred: {e}")
+                st.error(f"AI Logic Error: {e}")
 
     # ── Display History ──────────────────────────────────────────────────────
     if st.session_state.history:
