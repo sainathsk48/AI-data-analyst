@@ -92,14 +92,14 @@ Sample: {df.head(2).to_dict()}
 
 Question: {user_question}
 
-TASK: Write Python code using pandas and plotly.express.
+TASK: Write Python code.
 RULES:
-1. ALWAYS store your text answer in the variable `insight`. Be detailed and conversational. Report ALL numerical values found for individuals.
-2. Store your plotly figure in the variable `fig` or set `fig = None`.
-3. For individual queries (like about "Vaishnavi"), report all related column values. DO NOT make a chart for single-row facts.
-4. Use case-insensitive matching for strings.
+1. Search for the requested entity (e.g. "Sainath") using case-insensitive matching.
+2. Store the filtered row(s) you found in a variable named `evidence`. (e.g. `evidence = df[df['Name'].str.contains('sainath', case=False, na=False)]`)
+3. Store your detailed text answer in `insight`. Use the values directly from the `evidence` rows. Report all numbers found in those rows.
+4. Store your plotly figure in `fig` or set `fig = None`.
 
-OUTPUT ONLY THE PYTHON CODE. NO EXPLANATIONS.
+OUTPUT ONLY THE PYTHON CODE.
 """
             try:
                 raw = ask_groq(prompt)
@@ -109,25 +109,27 @@ OUTPUT ONLY THE PYTHON CODE. NO EXPLANATIONS.
                 code = code_match.group(1).strip() if code_match else raw.strip()
 
                 # Execute Code
-                local_vars = {'df': df, 'px': px, 'pd': pd, 'insight': None, 'fig': None}
+                local_vars = {'df': df, 'px': px, 'pd': pd, 'insight': None, 'fig': None, 'evidence': None}
                 
                 try:
                     exec(code, globals(), local_vars)
                     insight = local_vars.get('insight')
                     fig = local_vars.get('fig')
+                    evidence = local_vars.get('evidence')
                     
                     if not insight:
-                        st.warning("AI generated code but forgot to set the 'insight' variable.")
+                        st.warning("AI forgot to set 'insight'.")
                         with st.expander("Debug AI Code"):
                             st.code(code)
                     else:
-                        # Save to history ONLY if execution succeeded
+                        # Save to history
                         fig_html = fig.to_html(full_html=False, include_plotlyjs='cdn') if fig else None
                         st.session_state.history.insert(0, {
                             "question": user_question,
                             "insight": insight,
                             "fig": fig,
-                            "fig_html": fig_html
+                            "fig_html": fig_html,
+                            "evidence": evidence
                         })
                 except Exception as exec_err:
                     st.error(f"Execution Error: {exec_err}")
@@ -144,10 +146,14 @@ OUTPUT ONLY THE PYTHON CODE. NO EXPLANATIONS.
                 st.markdown(f"### ❓ {item['question']}")
                 st.info(f"💡 {item['insight']}")
                 
+                if item['evidence'] is not None and not item['evidence'].empty:
+                    with st.expander("📊 View Data Evidence (Verification)"):
+                        st.dataframe(item['evidence'], use_container_width=True)
+
                 if item['fig']:
                     st.plotly_chart(item['fig'], use_container_width=True, key=f"chart_{idx}")
                 
-                # Download Report for this specific insight
+                # Download Report
                 html_report = f"""
                 <html>
                 <body style="font-family: Arial; padding: 20px;">
