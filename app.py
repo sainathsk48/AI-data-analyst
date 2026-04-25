@@ -18,8 +18,11 @@ def ask_groq(prompt: str) -> str:
     client = get_client()
     response = client.chat.completions.create(
         model=MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
+        messages=[
+            {"role": "system", "content": "You are a specialized Python Data Analyst. You ONLY output valid Python code. You MUST always store your textual answer in a variable named 'insight' and your Plotly chart in 'fig'."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.1,
     )
     return response.choices[0].message.content
 
@@ -82,25 +85,21 @@ def main():
         with st.spinner("Thinking..."):
             # 4.1 Prompt Construction
             prompt = f"""
-You are an expert Python data analyst. The user has a pandas DataFrame named `df`.
-Structure:
+DataFrame `df` structure:
 Columns: {list(df.columns)}
-Data Types: {df.dtypes.astype(str).to_dict()}
-First 3 rows:
-{df.head(3).to_string()}
+Dtypes: {df.dtypes.astype(str).to_dict()}
+Sample: {df.head(2).to_dict()}
 
-User Question: {user_question}
+Question: {user_question}
 
-Write Python code to answer this question. 
-1. Use `df` to calculate the answer. If searching for a person/entity, use case-insensitive matching.
-2. Store a detailed, conversational "insight" string. 
-   - CRITICAL: If asking for an individual (like "Sainath"), report ALL numerical values found in their row (e.g. Project numbers, scores, etc.) to be comprehensive.
-3. Handle the figure (`fig`):
-   - CRITICAL: If the question is about a specific individual or single fact (e.g., "What is X's score?"), DO NOT generate a chart. Set `fig = None`. Aggregate batch charts are irrelevant here.
-   - ONLY generate a Plotly Express figure if the user asks for trends, comparisons, or distributions.
+TASK: Write Python code using pandas and plotly.express.
+RULES:
+1. ALWAYS store your text answer in the variable `insight`. Be detailed and conversational. Report ALL numerical values found for individuals.
+2. Store your plotly figure in the variable `fig` or set `fig = None`.
+3. For individual queries (like about "Vaishnavi"), report all related column values. DO NOT make a chart for single-row facts.
+4. Use case-insensitive matching for strings.
 
-Assume `import pandas as pd` and `import plotly.express as px` are ready.
-Return ONLY valid Python code. No markdown, no backticks, no text.
+OUTPUT ONLY THE PYTHON CODE. NO EXPLANATIONS.
 """
             try:
                 raw = ask_groq(prompt)
@@ -110,21 +109,26 @@ Return ONLY valid Python code. No markdown, no backticks, no text.
                 code = code_match.group(1).strip() if code_match else raw.strip()
 
                 # Execute Code
-                local_vars = {'df': df, 'px': px, 'pd': pd, 'insight': 'No insight generated.', 'fig': None}
+                local_vars = {'df': df, 'px': px, 'pd': pd, 'insight': None, 'fig': None}
                 
                 try:
                     exec(code, globals(), local_vars)
                     insight = local_vars.get('insight')
                     fig = local_vars.get('fig')
                     
-                    # Save to history ONLY if execution succeeded
-                    fig_html = fig.to_html(full_html=False, include_plotlyjs='cdn') if fig else None
-                    st.session_state.history.insert(0, {
-                        "question": user_question,
-                        "insight": insight,
-                        "fig": fig,
-                        "fig_html": fig_html
-                    })
+                    if not insight:
+                        st.warning("AI generated code but forgot to set the 'insight' variable.")
+                        with st.expander("Debug AI Code"):
+                            st.code(code)
+                    else:
+                        # Save to history ONLY if execution succeeded
+                        fig_html = fig.to_html(full_html=False, include_plotlyjs='cdn') if fig else None
+                        st.session_state.history.insert(0, {
+                            "question": user_question,
+                            "insight": insight,
+                            "fig": fig,
+                            "fig_html": fig_html
+                        })
                 except Exception as exec_err:
                     st.error(f"Execution Error: {exec_err}")
                     with st.expander("View AI Generated Code"):
