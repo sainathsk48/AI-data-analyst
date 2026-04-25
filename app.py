@@ -79,7 +79,6 @@ def main():
             st.error("GROQ_API_KEY not found in st.secrets.")
             return
 
-        with st.spinner("Thinking..."):
             # 4.1 Prompt Construction
             prompt = f"""
 You are an expert Python data analyst. The user has a pandas DataFrame named `df`.
@@ -92,9 +91,12 @@ First 3 rows:
 User Question: {user_question}
 
 Write Python code to answer this question. 
-1. Use `df` to calculate the answer. If searching for a string (like a name), use case-insensitive matching (e.g. `df[df['Name'].str.contains('sainath', case=False, na=False)]`).
-2. Store a detailed, conversational, "improvised" plain-English answer in a variable named `insight`. Include context from other columns.
-3. Create a Plotly Express figure in `fig` (or `None`). Aggregate data before plotting.
+1. Use `df` to calculate the answer. If searching for a person/entity, use case-insensitive matching.
+2. Store a detailed, conversational "insight" string. 
+   - CRITICAL: If asking for an individual (like "Sainath"), report ALL numerical values found in their row (e.g. Project numbers, scores, etc.) to be comprehensive.
+3. Handle the figure (`fig`):
+   - CRITICAL: If the question is about a specific individual or single fact (e.g., "What is X's score?"), DO NOT generate a chart. Set `fig = None`. Aggregate batch charts are irrelevant here.
+   - ONLY generate a Plotly Express figure if the user asks for trends, comparisons, or distributions.
 
 Assume `import pandas as pd` and `import plotly.express as px` are ready.
 Return ONLY valid Python code. No markdown, no backticks, no text.
