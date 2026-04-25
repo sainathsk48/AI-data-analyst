@@ -19,10 +19,22 @@ def ask_groq(prompt: str) -> str:
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
-            {"role": "system", "content": "You are a specialized Python Data Analyst. You ONLY output valid Python code. You MUST always store your textual answer in a variable named 'insight' and your Plotly chart in 'fig'."},
+            {
+                "role": "system", 
+                "content": """You are a PRECISE CSV Data Analyst. You ONLY output valid Python code.
+STRICT RULES:
+1. ONLY use data from the provided DataFrame `df`.
+2. Find ALL matching rows (do not stop at first match).
+3. Search case-insensitively and allow partial matches.
+4. Return exact values from cells - NEVER estimate.
+5. If no match is found, set insight = "No matching record found in the provided data."
+6. ALWAYS end your 'insight' string with: "📋 Evidence: [List the key row values here]"
+7. Do not hardcode numbers. Fetch them from the `evidence` variable in your code.
+"""
+            },
             {"role": "user", "content": prompt}
         ],
-        temperature=0.1,
+        temperature=0.0,
     )
     return response.choices[0].message.content
 
@@ -47,6 +59,9 @@ def main():
     if uploaded_file is None:
         st.info("👈 Upload a CSV file from the sidebar to get started.")
         return
+
+    # Display Filename Badge
+    st.sidebar.success(f"📂 Analyzing: {uploaded_file.name}")
 
     try:
         uploaded_file.seek(0)
@@ -85,20 +100,18 @@ def main():
         with st.spinner("Thinking..."):
             # 4.1 Prompt Construction
             prompt = f"""
-DataFrame `df` structure:
-Columns: {list(df.columns)}
-Dtypes: {df.dtypes.astype(str).to_dict()}
+Columns available: {list(df.columns)}
+Data Types: {df.dtypes.astype(str).to_dict()}
 
-Question: {user_question}
+User Question: {user_question}
 
 TASK: Write Python code.
-RULES:
-1. Search for the entity in Name or Email columns. Store in `evidence`.
-2. CRITICAL: If multiple records are found (e.g. 2 rows for "Sainath"), you MUST report details for ALL of them. 
-3. Store detailed text in `insight`. Use f-strings to fetch values from every row in `evidence`.
-   Example: "I found 2 records: one in Math with score X, and one in Android with score Y."
-4. SAFETY CHECK: If `evidence` is empty, set `insight = "I couldn't find any record."` and `fig = None`.
-5. Store plotly figure in `fig` or `None`.
+1. Find ALL rows where the search term matches any text column (Name, Email, etc.) case-insensitively.
+2. Store matches in `evidence`.
+3. If `evidence` is empty, set insight = "No matching record found in the provided data."
+4. If found, create `insight` string using values from `evidence`. Use f-strings.
+5. End `insight` with "📋 Evidence: " and the row contents.
+6. Set `fig = None` for individual fact questions.
 
 OUTPUT ONLY THE PYTHON CODE.
 """
@@ -119,7 +132,7 @@ OUTPUT ONLY THE PYTHON CODE.
                     evidence = local_vars.get('evidence')
                     
                     if not insight:
-                        st.warning("AI forgot to set 'insight'.")
+                        st.warning("AI failed to generate a precise insight.")
                     else:
                         # Save to history
                         fig_html = fig.to_html(full_html=False, include_plotlyjs='cdn') if fig else None
@@ -132,8 +145,6 @@ OUTPUT ONLY THE PYTHON CODE.
                         })
                 except Exception as exec_err:
                     st.error(f"Execution Error: {exec_err}")
-                    with st.expander("View AI Generated Code"):
-                        st.code(code)
 
             except Exception as e:
                 st.error(f"AI Logic Error: {e}")
