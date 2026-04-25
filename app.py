@@ -79,6 +79,7 @@ def main():
             st.error("GROQ_API_KEY not found in st.secrets.")
             return
 
+        with st.spinner("Thinking..."):
             # 4.1 Prompt Construction
             prompt = f"""
 You are an expert Python data analyst. The user has a pandas DataFrame named `df`.
