@@ -51,10 +51,10 @@ def main():
     try:
         uploaded_file.seek(0)
         try:
-            df = pd.read_csv(uploaded_file, on_bad_lines='skip', encoding='utf-8')
+            df = pd.read_csv(uploaded_file, on_bad_lines='skip', encoding='utf-8', index_col=False)
         except UnicodeDecodeError:
             uploaded_file.seek(0)
-            df = pd.read_csv(uploaded_file, on_bad_lines='skip', encoding='iso-8859-1')
+            df = pd.read_csv(uploaded_file, on_bad_lines='skip', encoding='iso-8859-1', index_col=False)
     except Exception as e:
         st.error(f"Error reading CSV: {e}")
         return
@@ -65,14 +65,12 @@ def main():
     col1, col2 = st.columns(2)
     col1.metric("Total Rows", len(df))
     col2.metric("Total Columns", len(df.columns))
-    st.write("**Columns:**", list(df.columns))
-
+    
     st.markdown("---")
 
     # ── AI Question Input ─────────────────────────────────────────────────────
     st.subheader("💬 Ask AI About Your Data")
     
-    # Use a form to handle submission better
     with st.form("query_form", clear_on_submit=True):
         user_question = st.text_input("Your question", placeholder="e.g. tell me which project number has sainath got")
         submitted = st.form_submit_button("Analyze")
@@ -95,7 +93,7 @@ Question: {user_question}
 TASK: Write Python code.
 RULES:
 1. Search for the requested entity (e.g. "Sainath") using case-insensitive matching.
-2. Store the filtered row(s) you found in a variable named `evidence`. (e.g. `evidence = df[df['Name'].str.contains('sainath', case=False, na=False)]`)
+2. Store the filtered row(s) you found in a variable named `evidence`. 
 3. Store your detailed text answer in `insight`. Use the values directly from the `evidence` rows. Report all numbers found in those rows.
 4. Store your plotly figure in `fig` or set `fig = None`.
 
@@ -103,12 +101,9 @@ OUTPUT ONLY THE PYTHON CODE.
 """
             try:
                 raw = ask_groq(prompt)
-                
-                # Robust Code Extraction
                 code_match = re.search(r"```(?:python)?\n?(.*?)\n?```", raw, re.DOTALL)
                 code = code_match.group(1).strip() if code_match else raw.strip()
 
-                # Execute Code
                 local_vars = {'df': df, 'px': px, 'pd': pd, 'insight': None, 'fig': None, 'evidence': None}
                 
                 try:
@@ -119,8 +114,6 @@ OUTPUT ONLY THE PYTHON CODE.
                     
                     if not insight:
                         st.warning("AI forgot to set 'insight'.")
-                        with st.expander("Debug AI Code"):
-                            st.code(code)
                     else:
                         # Save to history
                         fig_html = fig.to_html(full_html=False, include_plotlyjs='cdn') if fig else None
@@ -133,46 +126,40 @@ OUTPUT ONLY THE PYTHON CODE.
                         })
                 except Exception as exec_err:
                     st.error(f"Execution Error: {exec_err}")
-                    with st.expander("View AI Generated Code"):
-                        st.code(code)
 
             except Exception as e:
                 st.error(f"AI Logic Error: {e}")
 
-    # ── Display History ──────────────────────────────────────────────────────
+    # ── Main View (Latest Only) ──────────────────────────────────────────────
     if st.session_state.history:
-        for idx, item in enumerate(st.session_state.history):
-            with st.container():
-                st.markdown(f"### ❓ {item['question']}")
-                st.info(f"💡 {item['insight']}")
-                
-                if item['evidence'] is not None and not item['evidence'].empty:
-                    with st.expander("📊 View Data Evidence (Verification)"):
-                        st.dataframe(item['evidence'], use_container_width=True)
+        latest = st.session_state.history[0]
+        st.markdown(f"### ❓ {latest['question']}")
+        st.info(f"💡 {latest['insight']}")
+        
+        if latest['evidence'] is not None and not latest['evidence'].empty:
+            with st.expander("📊 View Data Evidence (Verification)"):
+                st.dataframe(latest['evidence'], use_container_width=True)
 
+        if latest['fig']:
+            st.plotly_chart(latest['fig'], use_container_width=True, key="latest_chart")
+        
+        # Download Report
+        html_report = f"<html><body style='font-family: Arial;'><h2>Analysis Report</h2><hr><h3>Question:</h3><p>{latest['question']}</p><h3>Analysis:</h3><p>{latest['insight']}</p>{f'<h3>Visualization:</h3>{latest['fig_html']}' if latest['fig_html'] else ''}</body></html>"
+        st.download_button(label="📥 Download Latest Report", data=html_report, file_name="analysis.html", mime="text/html")
+
+    # ── Sidebar History ──────────────────────────────────────────────────────
+    if len(st.session_state.history) > 1:
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("📜 Previous Analyses")
+        for idx, item in enumerate(st.session_state.history[1:]):
+            with st.sidebar.expander(f"Q: {item['question'][:30]}..."):
+                st.write(f"💡 {item['insight']}")
                 if item['fig']:
-                    st.plotly_chart(item['fig'], use_container_width=True, key=f"chart_{idx}")
+                    st.write("📈 Chart included in full report.")
                 
-                # Download Report
-                html_report = f"""
-                <html>
-                <body style="font-family: Arial; padding: 20px;">
-                    <h2>Data Analysis Report</h2>
-                    <hr>
-                    <h3>Question:</h3><p>{item['question']}</p>
-                    <h3>Analysis:</h3><p>{item['insight']}</p>
-                    {f"<h3>Visualization:</h3>{item['fig_html']}" if item['fig_html'] else ""}
-                </body>
-                </html>
-                """
-                st.download_button(
-                    label=f"📥 Download Report",
-                    data=html_report,
-                    file_name=f"analysis_{idx}.html",
-                    mime="text/html",
-                    key=f"dl_{idx}"
-                )
-                st.markdown("---")
+                # Small download for old ones
+                old_report = f"<html><body style='font-family: Arial;'><h3>{item['question']}</h3><p>{item['insight']}</p></body></html>"
+                st.download_button(label="📥 Download", data=old_report, file_name=f"old_analysis_{idx}.html", key=f"old_dl_{idx}")
 
 if __name__ == "__main__":
     main()
