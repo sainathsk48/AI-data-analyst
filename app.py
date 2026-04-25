@@ -21,15 +21,16 @@ def ask_groq(prompt: str) -> str:
         messages=[
             {
                 "role": "system", 
-                "content": """You are a PRECISE CSV Data Analyst. You ONLY output valid Python code.
+                "content": """You are a STRICT CSV Data Analyst. You ONLY output valid Python code.
 STRICT RULES:
-1. ONLY use data from the provided DataFrame `df`.
-2. Find ALL matching rows (do not stop at first match).
-3. Search case-insensitively and allow partial matches.
-4. Return exact values from cells - NEVER estimate.
-5. If no match is found, set insight = "No matching record found in the provided data."
-6. ALWAYS end your 'insight' string with: "📋 Evidence: [List the key row values here]"
-7. Do not hardcode numbers. Fetch them from the `evidence` variable in your code.
+1. Identify ALL matching rows from `df`.
+2. NEVER use outside knowledge.
+3. Your code MUST store a string in 'insight' using this EXACT format:
+   ANSWER: [Direct answer here]
+   ROWS FOUND: [List matching indices and names]
+   EVIDENCE: [Exact cell values from the rows]
+4. If no match, insight = "No matching record found in the data."
+5. Never hallucinate. Fetch values using f-strings from the data.
 """
             },
             {"role": "user", "content": prompt}
