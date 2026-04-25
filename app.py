@@ -23,17 +23,23 @@ def ask_groq(prompt: str) -> str:
     )
     return response.choices[0].message.content
 
-
-
 # ── main app ─────────────────────────────────────────────────────────────────
 
 def main():
     st.set_page_config(page_title="AI Data Analyst", layout="wide")
     st.title("🤖 AI Data Analyst Web App")
 
+    # Initialize Session State for Chat History
+    if "history" not in st.session_state:
+        st.session_state.history = []
+
     # 3.1 Sidebar
     st.sidebar.header("Upload Data")
     uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type=["csv"])
+
+    if st.sidebar.button("🗑️ Clear Analysis History"):
+        st.session_state.history = []
+        st.rerun()
 
     if uploaded_file is None:
         st.info("👈 Upload a CSV file from the sidebar to get started.")
@@ -62,9 +68,13 @@ def main():
 
     # ── AI Question Input ─────────────────────────────────────────────────────
     st.subheader("💬 Ask AI About Your Data")
-    user_question = st.text_input("Your question", placeholder="e.g. Show me sales trend by month")
+    
+    # Use a form to handle submission better
+    with st.form("query_form", clear_on_submit=True):
+        user_question = st.text_input("Your question", placeholder="e.g. tell me which project number has sainath got")
+        submitted = st.form_submit_button("Analyze")
 
-    if user_question:
+    if submitted and user_question:
         if "GROQ_API_KEY" not in st.secrets:
             st.error("GROQ_API_KEY not found in st.secrets.")
             return
@@ -83,79 +93,70 @@ First 3 rows:
 User Question: {user_question}
 
 Write Python code to answer this question. The code MUST do two things:
-1. Calculate the correct answer using `df`. Then, format that answer into a conversational, plain-English sentence and store it as a string in a variable named `insight`. Do NOT just return a raw number. Format it beautifully (e.g. "The state with the highest number of cases is Kerala with 1,234,567 cases.")
+1. Calculate the correct answer using `df`. Then, format that answer into a conversational, detailed, and "improvised" plain-English sentence and store it as a string in a variable named `insight`. 
+   - IMPROVISE: Don't just give the raw fact. Add related context from other columns if found (e.g. if asking for a person, mention their department or group if available).
+   - Format it beautifully and helpfully.
 2. If a chart makes sense, create a Plotly Express figure and store it in a variable named `fig`. If no chart makes sense, set `fig = None`.
 
 IMPORTANT: 
 - ALWAYS clean missing data (NaN/Nulls) using `.fillna(0)` or `.dropna()` before calculating sums, maxes, or grouping. Otherwise, your result will be 'NaN'!
-- For charts, ALWAYS aggregate the data first (e.g., groupby) before plotting so it doesn't plot thousands of overlapping rows!
+- For charts, ALWAYS aggregate the data first (e.g., groupby) before plotting!
 - Assume `import pandas as pd` and `import plotly.express as px` are already imported.
 - Return ONLY valid Python code. No markdown formatting, no backticks, no explanations. Just the code.
 """
             try:
                 raw = ask_groq(prompt)
-
-                # 4.3 Clean Code
                 code = raw.replace("```python", "").replace("```", "").strip()
 
-                # 4.4 Execute Code
+                # Execute Code
                 local_vars = {'df': df, 'px': px, 'pd': pd, 'insight': 'No insight generated.', 'fig': None}
-                
-                try:
-                    exec(code, globals(), local_vars)
-                except Exception as exec_err:
-                    st.error(f"Error executing AI code: {exec_err}")
-                    with st.expander("Show AI Code"):
-                        st.code(code)
-                    return
+                exec(code, globals(), local_vars)
 
                 insight = local_vars.get('insight')
                 fig = local_vars.get('fig')
+                
+                # Save to history
+                fig_html = fig.to_html(full_html=False, include_plotlyjs='cdn') if fig else None
+                st.session_state.history.insert(0, {
+                    "question": user_question,
+                    "insight": insight,
+                    "fig": fig,
+                    "fig_html": fig_html
+                })
 
-                st.info(f"💡 {insight}")
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
 
-                if fig:
-                    try:
-                        st.plotly_chart(fig, use_container_width=True)
-                    except Exception as e:
-                        st.error(f"Chart rendering error: {e}")
-
-                # 5. Download HTML Report
-                html_content = f"""
+    # ── Display History ──────────────────────────────────────────────────────
+    if st.session_state.history:
+        for idx, item in enumerate(st.session_state.history):
+            with st.container():
+                st.markdown(f"### ❓ {item['question']}")
+                st.info(f"💡 {item['insight']}")
+                
+                if item['fig']:
+                    st.plotly_chart(item['fig'], use_container_width=True, key=f"chart_{idx}")
+                
+                # Download Report for this specific insight
+                html_report = f"""
                 <html>
-                <head><title>Data Analysis Report</title></head>
-                <body style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; color: #333;">
-                    <h2 style="color: #2e6c80;">Data Analysis Report</h2>
+                <body style="font-family: Arial; padding: 20px;">
+                    <h2>Data Analysis Report</h2>
                     <hr>
-                    <h3 style="color: #444;">Question:</h3>
-                    <p style="font-size: 16px; background-color: #f4f4f4; padding: 10px; border-left: 4px solid #ccc;">{user_question}</p>
-                    
-                    <h3 style="color: #444;">AI Analysis:</h3>
-                    <p style="font-size: 16px;">{insight}</p>
-                """
-
-                if fig:
-                    html_content += f"""
-                    <h3 style="color: #444;">Visualization:</h3>
-                    <div>{fig.to_html(full_html=False, include_plotlyjs='cdn')}</div>
-                    """
-
-                html_content += """
+                    <h3>Question:</h3><p>{item['question']}</p>
+                    <h3>Analysis:</h3><p>{item['insight']}</p>
+                    {f"<h3>Visualization:</h3>{item['fig_html']}" if item['fig_html'] else ""}
                 </body>
                 </html>
                 """
-
                 st.download_button(
-                    label="📥 Download Analysis Report (HTML)",
-                    data=html_content,
-                    file_name="analysis_report.html",
-                    mime="text/html"
+                    label=f"📥 Download Report",
+                    data=html_report,
+                    file_name=f"analysis_{idx}.html",
+                    mime="text/html",
+                    key=f"dl_{idx}"
                 )
-
-            except Exception as e:
-                st.error(f"An error occurred during AI processing: {e}")
-
-
+                st.markdown("---")
 
 if __name__ == "__main__":
     main()
