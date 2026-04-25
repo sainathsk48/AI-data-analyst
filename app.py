@@ -92,18 +92,22 @@ Question: {user_question}
 
 TASK: Write Python code.
 RULES:
-1. Search for the requested entity (e.g. "Sainath") using case-insensitive matching.
-2. Store the filtered row(s) you found in a variable named `evidence`. 
-3. Store your detailed text answer in `insight`. Use the values directly from the `evidence` rows. Report all numbers found in those rows.
-4. Store your plotly figure in `fig` or set `fig = None`.
+1. Search for the requested entity using case-insensitive matching. Store in `evidence`.
+2. CRITICAL: Store your text answer in `insight`. 
+   - NEVER hardcode numbers in the string (e.g., DON'T write `insight = "Score is 50"`).
+   - ALWAYS use f-strings to fetch values directly from the `evidence` row (e.g., `insight = f"Score is {{evidence['ColumnName'].iloc[0]}}"`).
+3. Store your plotly figure in `fig` or set `fig = None`.
 
 OUTPUT ONLY THE PYTHON CODE.
 """
             try:
                 raw = ask_groq(prompt)
+                
+                # Robust Code Extraction
                 code_match = re.search(r"```(?:python)?\n?(.*?)\n?```", raw, re.DOTALL)
                 code = code_match.group(1).strip() if code_match else raw.strip()
 
+                # Execute Code
                 local_vars = {'df': df, 'px': px, 'pd': pd, 'insight': None, 'fig': None, 'evidence': None}
                 
                 try:
@@ -126,6 +130,8 @@ OUTPUT ONLY THE PYTHON CODE.
                         })
                 except Exception as exec_err:
                     st.error(f"Execution Error: {exec_err}")
+                    with st.expander("View AI Generated Code"):
+                        st.code(code)
 
             except Exception as e:
                 st.error(f"AI Logic Error: {e}")
