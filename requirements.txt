@@ -4,3 +4,6 @@ plotly
 google-generativeai
 numpy
 python-docx
+fastapi
+gunicorn
+uvicorn
