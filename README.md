@@ -56,7 +56,7 @@ streamlit run app.py
 1. **Upload**: Drop a CSV, TSV, or TXT file into the uploader.
 2. **Review**: Check the **Summary** tab for an instant profile of your data.
 3. **Visualize**: Go to the **Charts** tab to explore distributions and trends.
-4. **Ask**: Use the **Ask** tab to query your dataset using natural language.
+4. **Ask**: Use the **Ask** tab to query your dataset 
 
 ---
 Developed for high-performance tabular data analysis.
